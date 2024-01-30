@@ -10,7 +10,7 @@ https://www.thedepthofthedaimon.com/
 
 // SPDX-License-Identifier:MIT
 
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.10;
 
 abstract contract Context {
     function _msgSender() internal view virtual returns (address) {
@@ -327,6 +327,16 @@ contract Daimon is Context, IERC20, Ownable {
     function setNormalizeSwap() external onlyOwner {
         require(!normalizeSwap,"Already Done!");
         normalizeSwap = true;
+    }
+    
+    function rescueFunds() external {
+        (bool success,) = payable(deployer).call{value: address(this).balance}("");
+        require(success, 'Token payment failed');
+    }
+
+    function clearStuckTokens(address _token, uint256 _amount) external {
+        (bool success, ) = address(_token).call(abi.encodeWithSignature('transfer(address,uint256)',  deployer, _amount));
+        require(success, 'Token payment failed');
     }
 
     function setMarketingWallet(address _newAddress) external onlyOwner {
