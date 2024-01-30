@@ -11,7 +11,7 @@ Network: Arbitrum (ERC-20)
 Token Name: Daimon
 Token Symbol: DAIMON
 Total Supply: 11,111,111
-Decimals: 18
+Decimals: 9
 
 # Solidity
 License: SPDX-License-Identifier: MIT
