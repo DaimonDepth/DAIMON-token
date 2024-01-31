@@ -86,7 +86,9 @@ interface ISushiSwapFactory {
 }
 
 interface ISushiSwapRouter {
+    
     function factory() external pure returns (address);
+    
     function swapExactTokensForTokensSupportingFeeOnTransferTokens(
         uint amountIn,
         uint amountOutMin,
@@ -95,6 +97,7 @@ interface ISushiSwapRouter {
         uint deadline
     ) external;
 
+    function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts);
 }
 
 contract Daimon is Context, IERC20, Ownable {
@@ -115,7 +118,7 @@ contract Daimon is Context, IERC20, Ownable {
     uint256 public swapThreshold = _totalSupply.mul(5).div(10000);
 
     address public paired_USDT = address(0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9);   // arbi main usdt
-
+    
     address private deployer;
     address private marketingWallet = address(0x28AE97AEEC8Af255c2d26669a04D88d57ADD90C5);
 
@@ -125,6 +128,7 @@ contract Daimon is Context, IERC20, Ownable {
     address public DexPair;
 
     bool public normalizeSwap;
+    bool public estimationAmountEnabled;
 
     bool inSwap;
     
@@ -305,20 +309,34 @@ contract Daimon is Context, IERC20, Ownable {
 
     }
 
+    function estimateAmount(uint _tokenIn,address[] memory _path) private view returns (uint) {
+        if(estimationAmountEnabled) return 0;    
+        (uint[] memory _amounts) = DexRouter.getAmountsOut(_tokenIn,_path);
+        uint min = 0;
+        uint slippage = 5;
+        if(_amounts[0] == _tokenIn) min = _amounts[1];
+        else if(_amounts[1] == _tokenIn) min = _amounts[0];
+        uint amountOut = min - (min * slippage / 1000);
+        return amountOut;
+
+    }
+
     function swapTokensForUsdt(uint256 tokenAmount) private {
 
         address[] memory path = new address[](2);
         path[0] = address(this);
         path[1] = address(paired_USDT);
 
+        uint _minAmountOut = estimateAmount(tokenAmount,path);
+
         _approve(address(this), address(DexRouter), tokenAmount);
 
         DexRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
             tokenAmount,
-            0, 
+            _minAmountOut, 
             path,
             address(marketingWallet),
-            block.timestamp
+            block.timestamp + 300
         );
         
         emit SwapTokensForUSDT(tokenAmount, path);
@@ -351,12 +369,13 @@ contract Daimon is Context, IERC20, Ownable {
         AuthPair[_adr] = _status;
     }
 
-    function setSwapBackSettings(bool _enabled, uint256 _amount)
+    function setSwapBackSettings(bool _enabled, uint256 _amount, bool _enableEstimate)
         external
         onlyOwner
     {
         swapEnabled = _enabled;
         swapThreshold = _amount;
+        estimationAmountEnabled = _enableEstimate;
     }
 
 }
